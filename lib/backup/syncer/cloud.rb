@@ -104,6 +104,7 @@ module Backup
         end
 
         def local_hashes
+          Logger.message("Generating checksums for #{ directory }")
           `find #{directory} -print0 | xargs -0 openssl md5 2> /dev/null`
         end
 
@@ -129,10 +130,21 @@ module Backup
           remote_file = remote_files[relative_path]
 
           if local_file && File.exist?(local_file.path)
-            bucket.files.create(
-              :key  => "#{path}/#{relative_path}".gsub(/^\//, ''),
-              :body => File.open(local_file.path)
-            ) unless remote_file && remote_file.etag == local_file.md5
+            
+            unless remote_file && remote_file.etag == local_file.md5
+              Logger.message("Uploading #{relative_path}...")
+              
+              bucket.files.create(
+                :key  => "#{path}/#{relative_path}".gsub(/^\//, ''),
+                :body => File.open(local_file.path)
+              )
+            else
+              Logger.message("Skipping #{relative_path} (already synced)")
+            end
+            
+            
+            
+
           elsif remote_file && mirror
             remote_file.destroy
           end
